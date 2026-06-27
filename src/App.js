@@ -130,8 +130,6 @@ function App() {
     .filter(e => e.type === 'income')
     .reduce((sum, e) => sum + e.amount, 0);
 
-  const cardBg = darkMode ? "#1E293B" : null;
-  const cardBorder = darkMode ? "#334155" : null;
 
   return (
     <div className="app">
@@ -182,7 +180,7 @@ function App() {
           totalSpent={totalSpent}
           darkMode={darkMode}
         />
-        
+
         {/* AI Insights */}
 <AIInsights
   expenses={expenses}
