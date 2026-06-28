@@ -11,6 +11,10 @@ import BudgetManager from './components/BudgetManager';
 import SavingsGoal from './components/SavingsGoal';
 import MonthSelector from './components/MonthSelector';
 import AIInsights from './components/AIInsights';
+import Login from './components/Login';
+import Toast from './components/Toast';
+import RecurringExpenses from './components/RecurringExpenses';
+import PDFExport from './components/PDFExport';
 
 const initialExpenses = [
   { id: 1, name: "Dominos", category: "Food", amount: 450, date: "27 Jun", icon: "🍕", type: "expense", fullDate: "2025-06-27" },
@@ -36,6 +40,12 @@ function App() {
     return localStorage.getItem('darkMode') === 'true';
   });
 
+  const [user, setUser] = useState(() => {
+    const loggedIn = localStorage.getItem('loggedIn');
+    const savedUser = localStorage.getItem('user');
+    return loggedIn === 'true' && savedUser ? JSON.parse(savedUser) : null;
+  });
+
   const [expenses, setExpenses] = useState(() => {
     const saved = localStorage.getItem('expenses');
     return saved ? JSON.parse(saved) : initialExpenses;
@@ -50,6 +60,12 @@ function App() {
     const saved = localStorage.getItem('budgets');
     return saved ? JSON.parse(saved) : {};
   });
+
+  const [toast, setToast] = useState(null);
+
+function showToast(message, type = 'success') {
+  setToast({ message, type });
+}
 
   useEffect(() => {
     localStorage.setItem('expenses', JSON.stringify(expenses));
@@ -72,28 +88,41 @@ function App() {
     }
   }, [darkMode]);
 
-  function handleAdd(data) {
-    if (data.type === 'newCategory') {
-      setCustomCategories([...customCategories, data.name]);
-      return;
-    }
-    const withDate = { ...data, fullDate: new Date().toISOString().split('T')[0] };
-    setExpenses([withDate, ...expenses]);
+  function handleLogin(userData) {
+    setUser(userData);
   }
 
-  function handleDelete(id) {
-    setExpenses(expenses.filter(e => e.id !== id));
-  }
+  function handleLogout() {
+  localStorage.removeItem('loggedIn');
+  setUser(null);
+  showToast('Logged out successfully!', 'info');
+}
 
-  function handleEdit(updated) {
-    setExpenses(expenses.map(e => e.id === updated.id ? updated : e));
+function handleAdd(data) {
+  if (data.type === 'newCategory') {
+    setCustomCategories([...customCategories, data.name]);
+    showToast('Category added!', 'success');
+    return;
   }
+  const withDate = { ...data, fullDate: new Date().toISOString().split('T')[0] };
+  setExpenses([withDate, ...expenses]);
+  showToast(`${data.name} added successfully!`, 'success');
+}
+function handleDelete(id) {
+  setExpenses(expenses.filter(e => e.id !== id));
+  showToast('Transaction deleted!', 'error');
+}
 
-  function handleSaveBudget(category, amount) {
-    setBudgets({ ...budgets, [category]: amount });
-  }
+function handleEdit(updated) {
+  setExpenses(expenses.map(e => e.id === updated.id ? updated : e));
+  showToast('Transaction updated!', 'info');
+}
+function handleSaveBudget(category, amount) {
+  setBudgets({ ...budgets, [category]: amount });
+  showToast(`${category} budget saved!`, 'success');
+}
 
-  // CSV Export
+
   function handleExportCSV() {
     const headers = ['Name', 'Category', 'Amount', 'Type', 'Date'];
     const rows = expenses.map(e => [e.name, e.category, e.amount, e.type, e.date]);
@@ -108,13 +137,11 @@ function App() {
 
   const allCategories = ['Food', 'Transport', 'Bills', 'Shopping', 'Other', ...customCategories];
 
-  // Month filter
   const monthFiltered = selectedMonth === 'all' ? expenses : expenses.filter(e => {
     const d = e.fullDate || '';
     return d.startsWith(selectedMonth);
   });
 
-  // Search + category + type filter
   const filteredExpenses = monthFiltered.filter(e => {
     const matchSearch = e.name.toLowerCase().includes(search.toLowerCase());
     const matchCategory = filterCategory === 'all' || e.category === filterCategory;
@@ -130,6 +157,10 @@ function App() {
     .filter(e => e.type === 'income')
     .reduce((sum, e) => sum + e.amount, 0);
 
+  // Show Login if not logged in
+  if (!user) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <div className="app">
@@ -138,6 +169,8 @@ function App() {
         darkMode={darkMode}
         onToggleDark={() => setDarkMode(!darkMode)}
         onExportCSV={handleExportCSV}
+        user={user}
+        onLogout={handleLogout}
       />
       <div className="dashboard">
 
@@ -174,18 +207,18 @@ function App() {
           />
         </div>
 
+        {/* AI Insights */}
+        <AIInsights
+          expenses={expenses}
+          budgets={budgets}
+        />
+
         {/* Savings Goal */}
         <SavingsGoal
           totalIncome={totalIncome}
           totalSpent={totalSpent}
           darkMode={darkMode}
         />
-
-        {/* AI Insights */}
-<AIInsights
-  expenses={expenses}
-  budgets={budgets}
-/>
 
         {/* Charts */}
         <ExpenseCharts expenses={monthFiltered} />
@@ -197,6 +230,11 @@ function App() {
           onSaveBudget={handleSaveBudget}
           customCategories={customCategories}
         />
+        {/* Recurring Expenses */}
+<RecurringExpenses
+  onAdd={handleAdd}
+  darkMode={darkMode}
+/>
 
         {/* Search + Filter */}
         <SearchFilter
@@ -232,6 +270,14 @@ function App() {
           onSave={handleEdit}
           onClose={() => setEditExpense(null)}
           customCategories={customCategories}
+        />
+      )}
+{/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
         />
       )}
 
