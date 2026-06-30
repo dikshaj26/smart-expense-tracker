@@ -14,7 +14,9 @@ import AIInsights from './components/AIInsights';
 import Login from './components/Login';
 import Toast from './components/Toast';
 import RecurringExpenses from './components/RecurringExpenses';
-import PDFExport from './components/PDFExport';
+import Pagination from './components/Pagination';
+import StreakTracker from './components/StreakTracker';
+import KeyboardShortcuts from './components/KeyboardShortcuts';
 
 const initialExpenses = [
   { id: 1, name: "Dominos", category: "Food", amount: 450, date: "27 Jun", icon: "🍕", type: "expense", fullDate: "2025-06-27" },
@@ -35,6 +37,8 @@ function App() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('darkMode') === 'true';
@@ -63,9 +67,9 @@ function App() {
 
   const [toast, setToast] = useState(null);
 
-function showToast(message, type = 'success') {
-  setToast({ message, type });
-}
+  function showToast(message, type = 'success') {
+    setToast({ message, type });
+  }
 
   useEffect(() => {
     localStorage.setItem('expenses', JSON.stringify(expenses));
@@ -93,35 +97,36 @@ function showToast(message, type = 'success') {
   }
 
   function handleLogout() {
-  localStorage.removeItem('loggedIn');
-  setUser(null);
-  showToast('Logged out successfully!', 'info');
-}
-
-function handleAdd(data) {
-  if (data.type === 'newCategory') {
-    setCustomCategories([...customCategories, data.name]);
-    showToast('Category added!', 'success');
-    return;
+    localStorage.removeItem('loggedIn');
+    setUser(null);
+    showToast('Logged out successfully!', 'info');
   }
-  const withDate = { ...data, fullDate: new Date().toISOString().split('T')[0] };
-  setExpenses([withDate, ...expenses]);
-  showToast(`${data.name} added successfully!`, 'success');
-}
-function handleDelete(id) {
-  setExpenses(expenses.filter(e => e.id !== id));
-  showToast('Transaction deleted!', 'error');
-}
 
-function handleEdit(updated) {
-  setExpenses(expenses.map(e => e.id === updated.id ? updated : e));
-  showToast('Transaction updated!', 'info');
-}
-function handleSaveBudget(category, amount) {
-  setBudgets({ ...budgets, [category]: amount });
-  showToast(`${category} budget saved!`, 'success');
-}
+  function handleAdd(data) {
+    if (data.type === 'newCategory') {
+      setCustomCategories([...customCategories, data.name]);
+      showToast('Category added!', 'success');
+      return;
+    }
+    const withDate = { ...data, fullDate: new Date().toISOString().split('T')[0] };
+    setExpenses([withDate, ...expenses]);
+    showToast(`${data.name} added successfully!`, 'success');
+  }
 
+  function handleDelete(id) {
+    setExpenses(expenses.filter(e => e.id !== id));
+    showToast('Transaction deleted!', 'error');
+  }
+
+  function handleEdit(updated) {
+    setExpenses(expenses.map(e => e.id === updated.id ? updated : e));
+    showToast('Transaction updated!', 'info');
+  }
+
+  function handleSaveBudget(category, amount) {
+    setBudgets({ ...budgets, [category]: amount });
+    showToast(`${category} budget saved!`, 'success');
+  }
 
   function handleExportCSV() {
     const headers = ['Name', 'Category', 'Amount', 'Type', 'Date'];
@@ -149,6 +154,12 @@ function handleSaveBudget(category, amount) {
     return matchSearch && matchCategory && matchType;
   });
 
+  const totalPages = Math.ceil(filteredExpenses.length / itemsPerPage);
+  const paginatedExpenses = filteredExpenses.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   const totalSpent = monthFiltered
     .filter(e => e.type === 'expense')
     .reduce((sum, e) => sum + e.amount, 0);
@@ -157,7 +168,6 @@ function handleSaveBudget(category, amount) {
     .filter(e => e.type === 'income')
     .reduce((sum, e) => sum + e.amount, 0);
 
-  // Show Login if not logged in
   if (!user) {
     return <Login onLogin={handleLogin} />;
   }
@@ -171,10 +181,13 @@ function handleSaveBudget(category, amount) {
         onExportCSV={handleExportCSV}
         user={user}
         onLogout={handleLogout}
+        expenses={expenses}
+        totalSpent={totalSpent}
+        totalIncome={totalIncome}
       />
+
       <div className="dashboard">
 
-        {/* Month Selector */}
         <MonthSelector
           selectedMonth={selectedMonth}
           onSelectMonth={setSelectedMonth}
@@ -182,7 +195,6 @@ function handleSaveBudget(category, amount) {
           darkMode={darkMode}
         />
 
-        {/* Summary Cards */}
         <div className="cards-grid">
           <SummaryCard
             title="Total Spent"
@@ -207,36 +219,35 @@ function handleSaveBudget(category, amount) {
           />
         </div>
 
-        {/* AI Insights */}
         <AIInsights
           expenses={expenses}
           budgets={budgets}
         />
 
-        {/* Savings Goal */}
         <SavingsGoal
           totalIncome={totalIncome}
           totalSpent={totalSpent}
           darkMode={darkMode}
         />
 
-        {/* Charts */}
         <ExpenseCharts expenses={monthFiltered} />
 
-        {/* Budget Manager */}
         <BudgetManager
           expenses={monthFiltered}
           budgets={budgets}
           onSaveBudget={handleSaveBudget}
           customCategories={customCategories}
         />
-        {/* Recurring Expenses */}
-<RecurringExpenses
-  onAdd={handleAdd}
-  darkMode={darkMode}
-/>
 
-        {/* Search + Filter */}
+        <RecurringExpenses
+          onAdd={handleAdd}
+          darkMode={darkMode}
+        />
+
+<StreakTracker
+  expenses={expenses}
+  darkMode={darkMode}
+/> 
         <SearchFilter
           search={search}
           setSearch={setSearch}
@@ -247,11 +258,17 @@ function handleSaveBudget(category, amount) {
           categories={allCategories}
         />
 
-        {/* Expense List */}
         <ExpenseList
-          expenses={filteredExpenses}
+          expenses={paginatedExpenses}
           onDelete={handleDelete}
           onEdit={(exp) => setEditExpense(exp)}
+        />
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          darkMode={darkMode}
         />
 
       </div>
@@ -272,7 +289,7 @@ function handleSaveBudget(category, amount) {
           customCategories={customCategories}
         />
       )}
-{/* Toast */}
+
       {toast && (
         <Toast
           message={toast.message}
@@ -280,6 +297,11 @@ function handleSaveBudget(category, amount) {
           onClose={() => setToast(null)}
         />
       )}
+
+      <KeyboardShortcuts
+        onAddExpense={() => setShowForm(true)}
+        onToggleDark={() => setDarkMode(!darkMode)}
+      />
 
     </div>
   );
