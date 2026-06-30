@@ -47,7 +47,7 @@ function ExpenseCharts({ expenses }) {
 
   return (
     <>
-      <div className="bottom-grid" style={{ marginTop: "24px" }}>
+      <div className="bottom-grid" style={{ marginTop: "24px", width: "100%" }}>
 
         {/* Pie Chart */}
         <div className="dash-box" style={{
